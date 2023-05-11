@@ -1,0 +1,7 @@
+#! sudo apt-get install libportaudio2 libasound2 libasound2-dev python3-pyaudio
+pyalsaaudio
+pyaudio
+aiohttp
+aiofiles
+fastapi
+uvicorn
