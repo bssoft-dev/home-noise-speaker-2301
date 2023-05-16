@@ -14,22 +14,26 @@ def print_settings(config, deviceId):
     print('--------------------------------')
 
 
-p_config = configparser.ConfigParser()
+ori_config = configparser.ConfigParser()
 os.makedirs('/boot/bssoft', exist_ok=True)
 if os.path.exists('/boot/bssoft/config.txt'):
-    p_config.read('/boot/bssoft/config.txt')
+    ori_config.read('/boot/bssoft/config.txt')
 else:
-    p_config.read('config.ini') 
+    ori_config.read('config.ini') 
+
+# Set logger
+logger = Logger(name='smart_speaker', logdir=ori_config['files']['log_dir'], level=ori_config['files']['log_level'])
 
 if os.path.exists('/boot/bssoft/id.txt'):
     deviceId = open('/boot/bssoft/id.txt', 'r').read()
 else:
     deviceId = int(time())
+    logger.info(f"Device ID has been written to id.txt")
     open('id.txt', 'w').write(str(deviceId))
     subprocess.Popen('sudo cp id.txt /boot/bssoft/', shell=True)
 
 # Change config strings to int
-config = {s:dict(p_config.items(s)) for s in p_config.sections()}
+config = {s:dict(ori_config.items(s)) for s in ori_config.sections()}
 config['audio']['chunk'] = int(config['audio']['chunk'])
 config['audio']['channels'] = int(config['audio']['channels'])
 config['audio']['rate'] = int(config['audio']['rate'])
@@ -42,6 +46,3 @@ config['device']['heartbeat_interval'] = int(config['device']['heartbeat_interva
 config['audio']['num_frame'] = int(config['audio']['rate'] / config['audio']['chunk'] * config['audio']['record_seconds'])
 # Calculate number of chunks for one single file
 config['files']['num_sending_bundle'] = int(config['files']['sending_record_seconds']//config['audio']['record_seconds'])
-
-# Set logger
-logger = Logger(name='smart_speaker', logdir=config['files']['log_dir'], level=config['files']['log_level'])

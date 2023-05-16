@@ -16,6 +16,9 @@
 ## 환경
 - python 3.7
 
+## 실행(HW 접근을 위해 sudo 사용)
+- sudo python3 app.py
+
 ## 참고  
 초기 WIFI ssid/pw 연결  
 [wifi-connect](https://github.com/balena-os/wifi-connect) 이용

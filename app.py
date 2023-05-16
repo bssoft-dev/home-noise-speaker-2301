@@ -4,6 +4,7 @@ from utils.init import config
 
 from fastapi.responses import HTMLResponse
 from main import initPyaudio, heartbeat, audio_process
+from utils.user_button import button_run
 
 app = FastAPI(
     title="Smart Speaker",
@@ -12,14 +13,14 @@ app = FastAPI(
 )
 
 record_dir = config['files']['record_dir']
-prepared_dir = config['files']['record_dir']
+prepared_dir = config['files']['sound_dir']
 
 
 @app.on_event("startup")
 async def startup():
     os.makedirs(record_dir, exist_ok=True)
     stream, samplesize = initPyaudio()
-    asyncio.gather(heartbeat(), audio_process(stream, samplesize))
+    asyncio.gather(button_run(), heartbeat(), audio_process(stream, samplesize))
     
 @app.get('/')
 async def home():
@@ -36,13 +37,13 @@ async def home():
         <script>
             function playRequest(type, file){
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', '/play/'+type+'/'+file, true);
+                xhr.open('GET', '/control/play/'+type+'/'+file, true);
                 xhr.onload = function(){}; //응답값 무시
                 xhr.send();
                 }
             function stopRequest(type, file){
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', '/stop', true);
+                xhr.open('GET', '/control/stop', true);
                 xhr.onload = function(){}; //응답값 무시
                 xhr.send();
                 }
@@ -66,13 +67,18 @@ async def home():
     """
     return HTMLResponse(htmlStr)
 
-@app.get('/play/{reqType}/{wavfile}')
+@app.get('/control/play/{reqType}/{wavfile}')
 async def playWav(reqType, wavfile):
     if reqType == 'ready':
         subprocess.Popen(['aplay', '-D', 'hw:0,1', os.path.join(prepared_dir, wavfile) ])
     else:
         subprocess.Popen(['aplay', '-D', 'hw:0,1', os.path.join(record_dir,wavfile) ])
 
-@app.get('/stop')
+@app.get('/control/stop')
 async def playWav():
     subprocess.Popen(['pkill', '-9', 'aplay' ])
+
+@app.get('/api/playlist')
+async def playlist():
+    files = os.listdir(prepared_dir)
+    return files

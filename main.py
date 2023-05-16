@@ -34,17 +34,8 @@ def record_callback(in_data, frame_count, time_info, status):
     del gRecord_frames[0]
     return (in_data, pyaudio.paContinue)  
 
-# def lock_count(asyncState, lock=False):
-# # scream result by alarm sound will be ignored with this locking mechanism
-#     if lock:
-#         asyncState.alarm_lock = int(config['speaker']['alarm_duration']) + config['files']['sending_record_seconds']
-#     elif asyncState.alarm_lock == 0:
-#         pass
-#     else:
-#         count = asyncState.alarm_lock - 1
-#         asyncState.alarm_lock = count
-
 async def heartbeat():
+    logger.debug('Heartbeat is started')
     while True:
         async with aiohttp.ClientSession() as session:
             try:
@@ -54,12 +45,15 @@ async def heartbeat():
         await sleep(config['device']['heartbeat_interval'])
 
 async def audio_process(stream, audioSampleSize):
+    logger.debug('Audio Recording is started')
+    print('Audio Recording is started')
     nfile = 0
     isSend = False
     count = 0
     while(True):
         try:
-            logger.debug(count)
+            # logger.debug(count)
+            print(count)
             count += 1
             if (isSend==False) and (nfile == nBundle-1):
                 isSend = True
