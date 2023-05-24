@@ -4,15 +4,17 @@ from utils.setLogger import Logger
 from time import time
 
 def print_settings(config, deviceId):
-    for i in ['device', 'speaker', 'audio', 'files']:
-        print(f'----------{i}----------')
-        for j in config[i]:
-            print(j,':',config[i][j])
+    print('')
+    print('============= CONFIGS ==============')
+    print('')
+    for key in config.keys():
+        print(f'----------{key}----------')
+        for i in config[key]:
+            print(i,':',config[key][i])
         print('')
     print('--------------------------------')
     print(f'Device ID: {deviceId}')
     print('--------------------------------')
-
 
 ori_config = configparser.ConfigParser()
 os.makedirs('/boot/bssoft', exist_ok=True)
@@ -22,10 +24,10 @@ else:
     ori_config.read('config.ini') 
 
 # Set logger
-logger = Logger(name='smart_speaker', logdir=ori_config['files']['log_dir'], level=ori_config['files']['log_level'])
+logger = Logger(name='therapy_speaker', logdir=ori_config['files']['log_dir'], level=ori_config['files']['log_level'])
 
-if os.path.exists('/boot/bssoft/id.txt'):
-    deviceId = open('/boot/bssoft/id.txt', 'r').read()
+if os.path.exists(f'{ori_config["files"]["settings_dir"]}/id.txt'):
+    deviceId = open(f'{ori_config["files"]["settings_dir"]}/id.txt', 'r').read()
 else:
     deviceId = int(time())
     logger.info(f"Device ID has been written to id.txt")
@@ -42,6 +44,17 @@ config['files']['num_save'] = int(config['files']['num_save'])
 config['files']['sending_record_seconds'] = int(config['files']['sending_record_seconds'])
 config['device']['heartbeat_interval'] = int(config['device']['heartbeat_interval'])
 
+# Add properties of audio card
+if config['audio']['audio_card'] == 'core_v2':
+    config['audio']['mixer_control'] = 'Playback'
+    config['audio']['cardindex'] = 0
+elif config['audio']['audio_card'] == 'bank':
+    config['audio']['mixer_control'] = 'PCM'
+    config['audio']['cardindex'] = 1
+else:
+    config['audio']['mixer_control'] = 'Playback'
+    config['audio']['cardindex'] = 1
+    
 # Calculate number of frames for one single chunk
 config['audio']['num_frame'] = int(config['audio']['rate'] / config['audio']['chunk'] * config['audio']['record_seconds'])
 # Calculate number of chunks for one single file

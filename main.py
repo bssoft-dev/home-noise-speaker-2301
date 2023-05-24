@@ -15,7 +15,8 @@ gRecord_frames = [b'']*num_record_frames # Initialize num_record_frames length e
 
 def initPyaudio() :
     # Set Speaker Volume
-    m = alsaaudio.Mixer(control='Playback', cardindex=0)
+    print(config['audio']['cardindex'])
+    m = alsaaudio.Mixer(control=config['audio']['mixer_control'], cardindex=config['audio']['cardindex'])
     m.setvolume(int(config['speaker']['volume'])) # Set the volume to custom value
     # current_volume = m.getvolume() # Get the current Volume
     # Initialize the PyAudio
@@ -53,7 +54,6 @@ async def audio_process(stream, audioSampleSize):
     while(True):
         try:
             # logger.debug(count)
-            print(count)
             count += 1
             if (isSend==False) and (nfile == nBundle-1):
                 isSend = True
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     # Welcome Message
     print('')
     print('############################################################')
-    print('SmartSpeaker - Audio Recording and Play System V 0.1')
+    print(f'BS soft Corporation. {config["device"]["name"]} V{config["device"]["version"]} is Started.')
     print('############################################################')
     # Print Every settings
     print_settings(config, deviceId)

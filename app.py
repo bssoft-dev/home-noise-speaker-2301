@@ -1,8 +1,8 @@
 from fastapi import FastAPI
-import asyncio, os, subprocess
-from utils.init import config
-
 from fastapi.responses import HTMLResponse
+import asyncio, os, subprocess, alsaaudio
+
+from utils.init import config
 from main import initPyaudio, heartbeat, audio_process
 from utils.user_button import button_run
 
@@ -70,14 +70,26 @@ async def home():
 @app.get('/control/play/{reqType}/{wavfile}')
 async def playWav(reqType, wavfile):
     if reqType == 'ready':
-        subprocess.Popen(['aplay', '-D', 'hw:0,1', os.path.join(prepared_dir, wavfile) ])
+        subprocess.Popen(['aplay', '-D', f"hw:{config['audio']['cardindex']},1", os.path.join(prepared_dir, wavfile) ])
     else:
-        subprocess.Popen(['aplay', '-D', 'hw:0,1', os.path.join(record_dir,wavfile) ])
+        subprocess.Popen(['aplay', '-D', f"hw:{config['audio']['cardindex']},1", os.path.join(record_dir,wavfile) ])
 
 @app.get('/control/stop')
 async def playWav():
     subprocess.Popen(['pkill', '-9', 'aplay' ])
 
+@app.get('/control/volume/{value}')
+async def control_volume(value: int):
+    m = alsaaudio.Mixer(control=config['audio']['mixer_control'], cardindex=config['audio']['cardindex'])
+    m.setvolume(value) # Set the volume to custom value
+    return "ok"
+
+@app.get('/api/status/volume')
+async def check_volume_level():
+    m = alsaaudio.Mixer(control=config['audio']['mixer_control'], cardindex=config['audio']['cardindex'])
+    current_volume = m.getvolume() # Get the current Volume
+    return {"res": current_volume[0]}
+    
 @app.get('/api/playlist')
 async def playlist():
     files = os.listdir(prepared_dir)
