@@ -1,10 +1,10 @@
 import subprocess
 import wave
 from utils.init import config, deviceId, logger
-import aiohttp, asyncio
+import aiohttp, asyncio, alsaaudio
 # from main import lock_count
 
-anomaly = ['roadkm', 'adult_jumping', 'hammer', 'adult_walking', 'adult_running', 'jumping', 'running']
+anomaly = ['adult_jumping']
 
 def makeWavFile(filename, audioSampleSize, frames):
     wf = wave.open(filename, 'wb')
@@ -24,8 +24,7 @@ async def send_wav(filename):
                         open(filename, 'rb'),
                         filename=filename.split('/')[-1],
                         content_type='audio/wav')
-            res = await session.post('%s?threshold=%s'%(config['files']['send_url'],
-                            config['speaker']['detect_threshold']), data=data)
+            res = await session.post(config['files']['send_url'], data=data)
             logger.debug(await res.json())
             return res
         except Exception as e:
@@ -42,7 +41,14 @@ async def process(filename):
         else:
             event_res = await res.json()
             if (event_res['result'] in anomaly):
-                logger.info('Stress Sound Detected!')
+                logger.info(f"event: {event_res['result']}")
+                if event_res['power'] == '1.00':
+                    m = alsaaudio.Mixer(control=config['audio']['mixer_control'], cardindex=config['audio']['cardindex'])
+                    m.setvolume(100) # Set the volume to custom value
+                else:
+                    m = alsaaudio.Mixer(control=config['audio']['mixer_control'], cardindex=config['audio']['cardindex'])
+                    m.setvolume(70) # Set the volume to custom value
+                subprocess.Popen(['aplay', '-D', f"hw:{config['audio']['cardindex']},1", "-d", '6', "/home/respeaker/home-noise-speaker-2301/sounds/singingball.wav" ])
             
 
 if __name__ == '__main__':
