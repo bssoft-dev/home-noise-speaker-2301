@@ -1,5 +1,4 @@
-import configparser
-import os, subprocess
+import configparser, math, os, subprocess
 from utils.setLogger import Logger
 from time import time
 
@@ -7,55 +6,62 @@ def print_settings(config, deviceId):
     print('')
     print('============= CONFIGS ==============')
     print('')
-    for key in config.keys():
-        print(f'----------{key}----------')
-        for i in config[key]:
-            print(i,':',config[key][i])
+    for section in config.keys():
+        print(f'----------{section}----------')
+        for option in config[section]:
+            print(option,':',config.get(section, option))
         print('')
     print('--------------------------------')
     print(f'Device ID: {deviceId}')
     print('--------------------------------')
 
-ori_config = configparser.ConfigParser()
-os.makedirs('/boot/bssoft', exist_ok=True)
-if os.path.exists('/boot/bssoft/config.txt'):
-    ori_config.read('/boot/bssoft/config.txt')
+# Read config file
+config = configparser.ConfigParser()
+core_v2_config = '/mount2/bssoft/config.txt'
+else_config = '/boot/bssoft/config.txt'
+if os.path.exists(core_v2_config):
+    config.read(core_v2_config)
+elif os.path.exists(else_config):
+    config.read(else_config)
 else:
-    ori_config.read('config.ini') 
+    config.read('./config.ini') 
 
-# Set logger
-logger = Logger(name='therapy_speaker', logdir=ori_config['files']['log_dir'], level=ori_config['files']['log_level'])
+# Initialize the directory
+for dir in config['files'].keys():
+    if dir.endswith('dir'):
+        os.makedirs(config['files'][dir], exist_ok=True)
 
-if os.path.exists(f'{ori_config["files"]["settings_dir"]}/id.txt'):
-    deviceId = open(f'{ori_config["files"]["settings_dir"]}/id.txt', 'r').read()
+# Initialize device ID
+if os.path.exists(f'{config["device"]["settings_dir"]}/id.txt'):
+    deviceId = open(f'{config["device"]["settings_dir"]}/id.txt', 'r').read()
 else:
     deviceId = int(time())
-    logger.info(f"Device ID has been written to id.txt")
     open('id.txt', 'w').write(str(deviceId))
-    subprocess.Popen('sudo cp id.txt /boot/bssoft/', shell=True)
-
-# Change config strings to int
-config = {s:dict(ori_config.items(s)) for s in ori_config.sections()}
-config['audio']['chunk'] = int(config['audio']['chunk'])
-config['audio']['channels'] = int(config['audio']['channels'])
-config['audio']['rate'] = int(config['audio']['rate'])
-config['audio']['record_seconds'] = int(config['audio']['record_seconds'])
-config['files']['num_save'] = int(config['files']['num_save'])
-config['files']['sending_record_seconds'] = int(config['files']['sending_record_seconds'])
-config['device']['heartbeat_interval'] = int(config['device']['heartbeat_interval'])
+    subprocess.Popen(f'sudo cp id.txt {config["device"]["settings_dir"]}/', shell=True)
 
 # Add properties of audio card
-if config['audio']['audio_card'] == 'core_v2':
-    config['audio']['mixer_control'] = 'Playback'
-    config['audio']['cardindex'] = 0
-elif config['audio']['audio_card'] == 'bank':
-    config['audio']['mixer_control'] = 'PCM'
-    config['audio']['cardindex'] = 1
+if config.get('audio', 'audio_card') == 'core_v2':
+    config.set('audio', 'mixer_control', 'Playback')
+    config.set('audio', 'cardindex', '0')
+    config.set('audio', 'deviceindex', '1')
+elif config.get('audio', 'audio_card') == 'bank':
+    config.set('audio', 'mixer_control', 'PCM')
+    config.set('audio', 'cardindex', '1')
+    config.set('audio', 'deviceindex', '0')
 else:
-    config['audio']['mixer_control'] = 'Playback'
-    config['audio']['cardindex'] = 1
+    config.set('audio', 'mixer_control', 'Playback')
+    config.set('audio', 'cardindex', '1')
+    config.set('audio', 'deviceindex', '0')
     
 # Calculate number of frames for one single chunk
-config['audio']['num_frame'] = int(config['audio']['rate'] / config['audio']['chunk'] * config['audio']['record_seconds'])
+num_frame = config.getint('audio', 'rate') / config.getint('audio', 'chunk') * config.getint('files', 'record_seconds')
+config.set('audio', 'num_frame', str(math.ceil(num_frame))) # num_frame is always greater than target seconds
 # Calculate number of chunks for one single file
-config['files']['num_sending_bundle'] = int(config['files']['sending_record_seconds']//config['audio']['record_seconds'])
+num_sending_bundle = config.getint('files', 'sending_record_seconds')/config.getint('files', 'record_seconds')
+if not math.isclose(num_sending_bundle, int(num_sending_bundle)):
+    raise Exception("sending_record_seconds divided by record_seconds is NOT INTEGER!")
+config.set('files', 'num_sending_bundle', str(int(num_sending_bundle)))
+
+# Set logger
+logger = Logger(name=config['device']['name'], logdir=config['files']['log_dir'], level=config['files']['log_level'])
+

@@ -1,15 +1,18 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 import asyncio, os, subprocess, alsaaudio
+from asyncio import sleep
+import uvicorn
 
 from utils.init import config
-from main import initPyaudio, heartbeat, audio_process
+from utils.log_conf import app_log_conf
+from main import initPyaudio, heartbeat, record_stream, welcome_sound
 from utils.user_button import button_run
 
 app = FastAPI(
     title="Smart Speaker",
     description="스마트 스피커 API 페이지입니다.",
-    version="0.0.1"
+    version=config['device']['version']
 )
 
 record_dir = config['files']['record_dir']
@@ -19,8 +22,11 @@ prepared_dir = config['files']['sound_dir']
 @app.on_event("startup")
 async def startup():
     os.makedirs(record_dir, exist_ok=True)
+    if config.getboolean('options_using', 'use_welcome_sound'):
+        welcome_sound()
+        await sleep(3)
     stream, samplesize = initPyaudio()
-    asyncio.gather(button_run(), heartbeat(), audio_process(stream, samplesize))
+    asyncio.gather(button_run(), heartbeat(), record_stream(stream, samplesize))
     
 @app.get('/')
 async def home():
@@ -80,13 +86,13 @@ async def playWav():
 
 @app.get('/control/volume/{value}')
 async def control_volume(value: int):
-    m = alsaaudio.Mixer(control=config['audio']['mixer_control'], cardindex=config['audio']['cardindex'])
+    m = alsaaudio.Mixer(control=config.get('audio', 'mixer_control'), cardindex=config.getint('audio', 'cardindex'))
     m.setvolume(value) # Set the volume to custom value
     return "ok"
 
 @app.get('/api/status/volume')
 async def check_volume_level():
-    m = alsaaudio.Mixer(control=config['audio']['mixer_control'], cardindex=config['audio']['cardindex'])
+    m = alsaaudio.Mixer(control=config.get('audio', 'mixer_control'), cardindex=config.getint('audio', 'cardindex'))
     current_volume = m.getvolume() # Get the current Volume
     return {"res": current_volume[0]}
     
@@ -94,3 +100,7 @@ async def check_volume_level():
 async def playlist():
     files = os.listdir(prepared_dir)
     return files
+
+
+if __name__ == '__main__':
+    uvicorn.run("app:app", host='0.0.0.0', port=23019, reload=True, log_config=app_log_conf, log_level='info')
