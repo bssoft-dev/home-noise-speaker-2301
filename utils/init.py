@@ -1,6 +1,7 @@
 import configparser, math, os, subprocess
 from utils.setLogger import Logger
 from time import time
+import alsaaudio
 
 def print_settings(config, deviceId):
     print('')
@@ -14,6 +15,13 @@ def print_settings(config, deviceId):
     print('--------------------------------')
     print(f'Device ID: {deviceId}')
     print('--------------------------------')
+    
+def find_card_by_name(name:str) -> int :
+    try:
+        i = alsaaudio.cards().index(name)
+        return i
+    except:
+        return -1
 
 # Read config file
 config = configparser.ConfigParser()
@@ -40,18 +48,19 @@ else:
     subprocess.Popen(f'sudo cp id.txt {config["device"]["settings_dir"]}/', shell=True)
 
 # Add properties of audio card
-if config.get('audio', 'audio_card') == 'core_v2':
+card_name = config.get('audio', 'audio_card')
+if  card_name == 'core_v2':
     config.set('audio', 'mixer_control', 'Playback')
     config.set('audio', 'cardindex', '0')
     config.set('audio', 'deviceindex', '1')
-elif config.get('audio', 'audio_card') == 'bank':
-    config.set('audio', 'mixer_control', 'PCM')
-    config.set('audio', 'cardindex', '1')
-    config.set('audio', 'deviceindex', '0')
 else:
-    config.set('audio', 'mixer_control', 'Playback')
-    config.set('audio', 'cardindex', '1')
-    config.set('audio', 'deviceindex', '0')
+    config.set('audio', 'mixer_control', 'Speaker') #! Not tested except WM8960
+    card_id = find_card_by_name(card_name)
+    if card_id == -1:
+        raise Exception(f"Could not find {card_name} sound card")
+    else:
+        config.set('audio', 'cardindex', str(card_id))
+        config.set('audio', 'deviceindex', '0')
     
 # Calculate number of frames for one single chunk
 num_frame = config.getint('audio', 'rate') / config.getint('audio', 'chunk') * config.getint('files', 'record_seconds')

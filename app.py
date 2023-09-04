@@ -7,7 +7,10 @@ import uvicorn
 from utils.init import config
 from utils.log_conf import app_log_conf
 from main import initPyaudio, heartbeat, record_stream, welcome_sound
-from utils.user_button import button_run
+if config.get('audio', 'audio_card') == 'core_v2':
+    from utils.user_button import button_run
+else:
+    from utils.hat_button import button_run
 
 app = FastAPI(
     title="Smart Speaker",
@@ -76,9 +79,9 @@ async def home():
 @app.get('/control/play/{reqType}/{wavfile}')
 async def playWav(reqType, wavfile):
     if reqType == 'ready':
-        subprocess.Popen(['aplay', '-D', f"hw:{config['audio']['cardindex']},1", os.path.join(prepared_dir, wavfile) ])
+        subprocess.Popen(['aplay', '-D', f"plughw:{config['audio']['cardindex']},{config['audio']['deviceindex']}", os.path.join(prepared_dir, wavfile) ])
     else:
-        subprocess.Popen(['aplay', '-D', f"hw:{config['audio']['cardindex']},1", os.path.join(record_dir,wavfile) ])
+        subprocess.Popen(['aplay', '-D', f"plughw:{config['audio']['cardindex']},{config['audio']['deviceindex']}", os.path.join(record_dir,wavfile) ])
 
 @app.get('/control/stop')
 async def playWav():

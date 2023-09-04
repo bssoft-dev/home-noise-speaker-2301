@@ -8,7 +8,8 @@ from time import time, sleep
 from utils.init import config, deviceId, print_settings, logger
 from utils import mute_alsa #mute_alsa removes many trivial warnings
 import wav_packaging
-from bs_sound_utils.get_speech import get_speech_from_mic
+if config.getboolean('options_using', 'record_speech_only'):
+    from bs_sound_utils.get_speech import get_speech_from_mic
 
 if config.get('audio', 'audio_card') == 'core_v2':
     from utils.user_button import button_run
