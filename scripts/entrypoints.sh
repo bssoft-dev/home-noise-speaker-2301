@@ -6,3 +6,4 @@ then
   ./run.sh
 else
   pkill python3
+fi

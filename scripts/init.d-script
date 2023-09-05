@@ -12,10 +12,6 @@ export BASE_DIR="/boot/bssoft"
 case $1 in
   start)
     sleep 5
-    while ! test -d $BASE_DIR
-    do
-      sleep 1
-    done
     echo "Starting BSSOFT Service"
     $BASE_DIR/entrypoints.sh start
     ;;
