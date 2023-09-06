@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-import asyncio, os, subprocess, alsaaudio
+import asyncio, os, subprocess, alsaaudio, shutil
 from asyncio import sleep
 import uvicorn
 
+from models import Mixin
 from utils.init import config
 from utils.log_conf import app_log_conf
+from bs_sound_utils.sound_mix import mix_by_ratio
 from main import initPyaudio, heartbeat, record_stream, welcome_sound
 if config.get('audio', 'audio_card') == 'core_v2':
     from utils.user_button import button_run
@@ -104,6 +106,17 @@ async def playlist():
     files = os.listdir(prepared_dir)
     return files
 
+@app.post('/api/mix/preview')
+async def mix_and_preview_wavfiles(mix : Mixin):
+    filename = mix_by_ratio(mix.files, mix.ratio)
+    subprocess.Popen(['aplay', '-D', f"plughw:{config['audio']['cardindex']},{config['audio']['deviceindex']}", filename ])
+    return filename
+
+@app.post('/api/mix/save/{savename}')
+async def mix_and_preview_wavfiles(savename: str, mix : Mixin):
+    filename = mix_by_ratio(mix.files, mix.ratio)
+    shutil.move(filename, os.path.join(prepared_dir, savename))
+    return savename
 
 if __name__ == '__main__':
     uvicorn.run("app:app", host='0.0.0.0', port=23019, reload=True, log_config=app_log_conf, log_level='info')

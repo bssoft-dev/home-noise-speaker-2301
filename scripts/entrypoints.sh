@@ -5,5 +5,5 @@ then
   cd /home/bssoft/home-noise-speaker-2301
   ./run.sh
 else
-  pkill python3
+  pkill -9 python3
 fi
