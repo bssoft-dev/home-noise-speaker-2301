@@ -1,22 +1,30 @@
 # 층간소음 스트레스 저감 스마트 스피커
 
 ## 통신
-랜선 혹은 WIFI 연결
-1. 오디오 분석 <디바이스> -> <머신러닝 서버 분석> -> <결과 전달(디바이스)>
-1. 연결상태 전송(주기), 이벤트 알림(비주기) <디바이스> -> <비상벨 대시보드 서버>
+서버 - 스피커 - 앱
+1. 스피커와 앱은 내부 네트워크를 통해서만 연결 
+2. 스마트폰 앱을 통해 스피커 제어
+3. 추후 녹음 음원을 분석한 서버 결과를 통해 자동 재생 추가 예정
 
-## 특징 (Version 0.2)
-1. 자동실행 - 기기 부팅 후 메인 프로그램과 모니터링 프로그램 자동 실행
-1. 사용자 설정 - /boot/bssoft/ 폴더의 id.txt와 config.txt를 이용하여 기기 아이디와 각종 설정 변경 가능
-(id.txt 파일이 있으면 해당 파일 내 텍스트를 deviceId로 인식하며, 파일이 없으면 unix time 기반으로 아이디를 만들고 id.txt를 생성함)
-1. 내부 웹서버 - 브라우저로 스피커 페이지 접속
-1. 2ch 마이크 및 고성능 스피커
+## 특징 (Version 1.0)
+1. 2ch 마이크 및 스피커
+2. 자동실행 - 기기 부팅 후 메인 프로그램 자동 실행
+3. 내부 웹서버 - 브라우저로 스피커 페이지 접속
+4. 새벽에 주기적으로 서버를 통해 원격 강제 업데이트
+5. 버튼클릭시 AP 모드 구동, 해당 wifi에 접속하여 wifi 접속설정 가능
 
 ## 환경
-- python 3.7
+- python 3.9
 
-## 실행(HW 접근을 위해 sudo 사용)
-- sudo python3 app.py
+## bssoft 시작프로그램 등록
+등록예시
+~~~bash
+sudo mkdir /boot/bssoft
+sudo cp ./scripts/entrypoints.sh /boot/bssoft/
+sudo cp ./scripts/init.d-script /etc/init.d/bssoft
+cd /etc/init.d
+sudo update-rc.d bssoft defaults
+~~~
 
 ## 참고  
 초기 WIFI ssid/pw 연결  
