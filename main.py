@@ -18,6 +18,7 @@ else:
     
 
 nBundle = config.getint('files', 'num_sending_bundle')
+
 if not config.getboolean('options_using', 'send_recorded_file'):
     num_record_frames = config.getint('audio', 'num_frame')
 else:

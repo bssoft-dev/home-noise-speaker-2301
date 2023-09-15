@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-import asyncio, os, subprocess, alsaaudio, shutil
+import asyncio, os, subprocess, alsaaudio, shutil, requests
 from asyncio import sleep
 import uvicorn
 
@@ -114,9 +114,13 @@ async def mix_and_preview_wavfiles(mix : Mixin):
 
 @app.post('/api/mix/save/{savename}')
 async def mix_and_preview_wavfiles(savename: str, mix : Mixin):
+    savename = f"{savename}.wav"
     filename = mix_by_ratio(mix.files, mix.ratio)
-    shutil.move(filename, os.path.join(prepared_dir, savename))
-    return savename
+    result_file = os.path.join(prepared_dir, savename)
+    shutil.move(filename, result_file)
+    files = {'file': (savename, open(result_file, 'rb'), 'audio/wav')}
+    res = requests.post("https://home-therapy.bs-soft.co.kr/api/upload-mixedfile", files=files)
+    return {"result": res.text} 
 
 if __name__ == '__main__':
     uvicorn.run("app:app", host='0.0.0.0', port=23019, reload=True, log_config=app_log_conf, log_level='info')
