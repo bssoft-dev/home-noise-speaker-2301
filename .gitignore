@@ -2,5 +2,6 @@ log.txt
 id.txt
 logs/
 record_sounds/
+sounds/
 __pycache__/
 */__pycache__/

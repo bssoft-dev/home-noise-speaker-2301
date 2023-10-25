@@ -33,7 +33,11 @@ def check_audio_devices(p):
 def initPyaudio() :
     # Set Speaker Volume
     m = alsaaudio.Mixer(control = config.get('audio', 'mixer_control'), cardindex = config.getint('audio', 'cardindex'))
-    m.setvolume(config.getint('speaker', 'volume')) # Set the volume to custom value
+    new_volume = config.getint('speaker', 'volume')
+    for file in os.listdir('../'):
+        if file.endswith('.vol'):
+            new_volume = int(file.split('.')[0]) # Find previous volume
+    m.setvolume(new_volume) # Set the volume to custom value
     # current_volume = m.getvolume() # Get the current Volume
     # Initialize the PyAudio
     p = pyaudio.PyAudio()
@@ -140,7 +144,8 @@ if __name__ == '__main__':
     print('############################################################')
     # Print Every settings
     print_settings(config, deviceId)
-    if config.getboolean('options_using', 'use_welcome_sound'):
+    is_update = os.path.isfile('../update')
+    if config.getboolean('options_using', 'use_welcome_sound') and (is_update == False):
         welcome_sound()
         sleep(3)
     stream, audioSampleSize = initPyaudio()

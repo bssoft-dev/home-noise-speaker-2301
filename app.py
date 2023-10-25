@@ -6,6 +6,7 @@ import uvicorn
 
 from models import Mixin
 from utils.init import config
+from utils.files import create_vol_file
 from utils.log_conf import app_log_conf
 from bs_sound_utils.sound_mix import mix_by_ratio
 from main import initPyaudio, heartbeat, record_stream, welcome_sound
@@ -27,10 +28,11 @@ prepared_dir = config['files']['sound_dir']
 @app.on_event("startup")
 async def startup():
     os.makedirs(record_dir, exist_ok=True)
-    if config.getboolean('options_using', 'use_welcome_sound'):
+    is_update = os.path.isfile('../update')
+    if config.getboolean('options_using', 'use_welcome_sound') and (is_update == False):
         welcome_sound()
         await sleep(3)
-    stream, samplesize = initPyaudio()
+    stream, samplesize = initPyaudio() 
     asyncio.gather(button_run(), heartbeat(), record_stream(stream, samplesize))
     
 @app.get('/')
@@ -81,18 +83,22 @@ async def home():
 @app.get('/control/play/{reqType}/{wavfile}')
 async def playWav(reqType, wavfile):
     if reqType == 'ready':
-        subprocess.Popen(['aplay', '-D', f"plughw:{config['audio']['cardindex']},{config['audio']['deviceindex']}", os.path.join(prepared_dir, wavfile) ])
+        subprocess.Popen(['./utils/repeat_play.sh', config['audio']['cardindex'], config['audio']['deviceindex'], os.path.join(prepared_dir, wavfile) ])
+        # subprocess.Popen(['aplay', '-D', f"plughw:{config['audio']['cardindex']},{config['audio']['deviceindex']}", os.path.join(prepared_dir, wavfile) ])
     else:
-        subprocess.Popen(['aplay', '-D', f"plughw:{config['audio']['cardindex']},{config['audio']['deviceindex']}", os.path.join(record_dir,wavfile) ])
+        subprocess.Popen(['./utils/repeat_play.sh', config['audio']['cardindex'], config['audio']['deviceindex'], os.path.join(record_dir, wavfile) ])
+        # subprocess.Popen(['aplay', '-D', f"plughw:{config['audio']['cardindex']},{config['audio']['deviceindex']}", os.path.join(record_dir,wavfile) ])
 
 @app.get('/control/stop')
 async def playWav():
+    subprocess.Popen(['pkill', '-9', 'repeat_play' ])
     subprocess.Popen(['pkill', '-9', 'aplay' ])
 
 @app.get('/control/volume/{value}')
 async def control_volume(value: int):
     m = alsaaudio.Mixer(control=config.get('audio', 'mixer_control'), cardindex=config.getint('audio', 'cardindex'))
     m.setvolume(value) # Set the volume to custom value
+    create_vol_file(value)
     return "ok"
 
 @app.get('/api/status/volume')
