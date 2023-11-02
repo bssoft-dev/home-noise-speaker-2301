@@ -111,7 +111,7 @@ async def check_volume_level():
 async def playlist():
     files = os.listdir(prepared_dir)
     files.sort()
-    sourted_files = change_audio_order(files)
+    sorted_files = change_audio_order(files)
     return sorted_files
 
 @app.post('/api/mix/preview')
