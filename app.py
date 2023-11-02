@@ -6,7 +6,7 @@ import uvicorn
 
 from models import Mixin
 from utils.init import config
-from utils.files import create_vol_file
+from utils.files import create_vol_file, change_audio_order
 from utils.log_conf import app_log_conf
 from bs_sound_utils.sound_mix import mix_by_ratio
 from main import initPyaudio, heartbeat, record_stream, welcome_sound
@@ -110,7 +110,9 @@ async def check_volume_level():
 @app.get('/api/playlist')
 async def playlist():
     files = os.listdir(prepared_dir)
-    return files
+    files.sort()
+    sourted_files = change_audio_order(files)
+    return sorted_files
 
 @app.post('/api/mix/preview')
 async def mix_and_preview_wavfiles(mix : Mixin):
