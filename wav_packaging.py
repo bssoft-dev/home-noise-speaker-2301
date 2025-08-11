@@ -2,6 +2,7 @@ import subprocess
 import wave
 from utils.init import config, deviceId, logger
 import aiohttp, asyncio
+from utils.audio_player import stop_current_playback, play_audio_file
 #from main import lock_count
 
 
@@ -47,8 +48,8 @@ async def send_process(filename):
                 logger.info('Voice Detected!')
                 # Light the LED
                 subprocess.Popen(['python3', 'utils/pixels.py', 'alarm_light'])
-                subprocess.Popen(['aplay', '-D', f'plughw:{config["audio"]["cardindex"]},{config["audio"]["deviceindex"]}', '-d', config['speaker']['alarm_duration'] ,
-                        config['speaker']['alarm_wav']])
+                # 기존 음원 정지 후 새 음원 재생
+                play_audio_file(config['speaker']['alarm_wav'])
                 return 'restart'
     else:
         logger.warning('Send audio result is None - maybe network error')

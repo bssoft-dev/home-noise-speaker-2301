@@ -4,9 +4,13 @@ import asyncio
 from asyncio import sleep as asleep
 import aiohttp
 from time import time, sleep
+import threading
+from collections import deque
 
 from utils.init import config, deviceId, print_settings, logger
 from utils import mute_alsa #mute_alsa removes many trivial warnings
+from utils.websocket_streaming import start_websocket_streaming, stream_audio_data
+from utils.audio_player import stop_current_playback, play_audio_file
 import wav_packaging
 if config.getboolean('options_using', 'record_speech_only'):
     from bs_sound_utils.get_speech import get_speech_from_mic
@@ -15,7 +19,6 @@ if config.get('audio', 'audio_card') == 'core_v2':
     from utils.user_button import button_run
 else:
     from utils.hat_button import button_run
-    
 
 nBundle = config.getint('files', 'num_sending_bundle')
 
@@ -24,6 +27,10 @@ if not config.getboolean('options_using', 'send_recorded_file'):
 else:
     num_record_frames = config.getint('audio', 'num_frame')*nBundle
 gRecord_frames = [b'']*num_record_frames # Initialize num_record_frames length empty byte array
+
+# WebSocket 스트리밍을 위한 전역 버퍼
+websocket_audio_buffer = deque(maxlen=100)  # 최대 100개 프레임 저장
+websocket_buffer_lock = threading.Lock()
 
 def check_audio_devices(p):
     for i in range(p.get_device_count()):
@@ -49,12 +56,19 @@ def initPyaudio() :
                 frames_per_buffer=config.getint('audio', 'chunk'),
                 stream_callback=record_callback)
     audioSampleSize = p.get_sample_size(pyaudio.paInt16)
+
     return (stream, audioSampleSize)
 
 
 def record_callback(in_data, frame_count, time_info, status):
     gRecord_frames.append(in_data)
     del gRecord_frames[0]
+    
+    # WebSocket 스트리밍 - 스레드 안전한 버퍼링
+    if config.getboolean('options_using', 'websocket_streaming'):
+        with websocket_buffer_lock:
+            websocket_audio_buffer.append(in_data)
+    
     return (in_data, pyaudio.paContinue)
 
 
@@ -66,6 +80,7 @@ async def heartbeat():
                     await session.get('{}/{}/heartbeat'.format(config.get('device', 'heartbeat_url'), deviceId))
                 except Exception as e:
                     logger.warning('Heartbeat - %s'%e)
+
             await asleep(config.getint('device', 'heartbeat_interval'))
 
 
@@ -78,6 +93,11 @@ async def speech_stream(audioSampleSize):
             filename = os.path.join(config.get('files', 'record_dir'), f'{int(time())}.wav')
         audiodata = get_speech_from_mic()
         wav_packaging.makeWavFile(filename, audioSampleSize, audiodata, dtype='int')
+        
+        # WebSocket 스트리밍 (음성 감지 모드에서도)
+        if config.getboolean('options_using', 'websocket_streaming'):
+            await stream_audio_data(audiodata)
+        
         if config.getboolean('options_using', 'send_recorded_file'):
             await wav_packaging.process(filename)
         nfile += 1
@@ -116,19 +136,62 @@ async def record_stream(stream, audioSampleSize):
             quit()
 
 async def coroutin_main(stream, audioSampleSize):
+    # WebSocket 스트리밍 태스크 시작
+    websocket_task = None
+    if config.getboolean('options_using', 'websocket_streaming'):
+        websocket_task = await start_websocket_streaming()
+        if websocket_task:
+            logger.info("WebSocket 스트리밍이 시작되었습니다")
+        else:
+            logger.warning("WebSocket 스트리밍 시작 실패")
+    
+    # 기존 태스크들과 함께 실행
+    tasks = [button_run(), heartbeat()]
+    
     if config.getboolean('options_using', 'record_speech_only'):
-        await asyncio.gather(button_run(), heartbeat(), speech_stream(audioSampleSize))
+        tasks.append(speech_stream(audioSampleSize))
     else:
-        await asyncio.gather(button_run(), heartbeat(), record_stream(stream, audioSampleSize))
+        tasks.append(record_stream(stream, audioSampleSize))
+    
+    # WebSocket 스트리밍 처리 태스크 추가
+    if config.getboolean('options_using', 'websocket_streaming'):
+        tasks.append(websocket_streaming_task())
+    
+    # WebSocket 태스크도 추가 (있는 경우)
+    if websocket_task:
+        tasks.append(websocket_task)
+    
+    await asyncio.gather(*tasks)
+
+
+async def websocket_streaming_task():
+    """WebSocket 스트리밍 처리 태스크"""
+    if not config.getboolean('options_using', 'websocket_streaming'):
+        return
+        
+    logger.info("WebSocket 스트리밍 처리 태스크 시작")
+    
+    while True:
+        try:
+            # 버퍼에서 오디오 데이터 가져오기
+            audio_data = None
+            with websocket_buffer_lock:
+                if websocket_audio_buffer:
+                    audio_data = websocket_audio_buffer.popleft()
+            
+            if audio_data:
+                await stream_audio_data(audio_data)
+            
+            # 짧은 간격으로 체크
+            await asleep(0.01)  # 10ms
+            
+        except Exception as e:
+            logger.error(f"WebSocket 스트리밍 태스크 오류: {e}")
+            await asleep(1)
 
 
 def welcome_sound():
-    subprocess.Popen([
-        'aplay', 
-        '-D', 
-        f'plughw:{config.get("audio", "cardindex")},{config.get("audio", "deviceindex")}', 
-        config.get('speaker', 'welcome_wav')
-        ])
+    play_audio_file(config.get('speaker', 'welcome_wav'))
 
 if __name__ == '__main__':
     # Log starting
@@ -141,6 +204,8 @@ if __name__ == '__main__':
     print('')
     print('############################################################')
     print(f'BS soft Corporation. {config.get("device", "name")} V{config.get("device", "version")} is Started.')
+    if config.getboolean('options_using', 'websocket_streaming'):
+        print(f'WebSocket 스트리밍: 활성화 ({config.get("websocket", "server_host")}:{config.get("websocket", "server_port")})')
     print('############################################################')
     # Print Every settings
     print_settings(config, deviceId)

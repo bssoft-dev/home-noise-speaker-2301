@@ -1,6 +1,7 @@
 from evdev import InputDevice, ecodes
 import asyncio, subprocess
 from utils.init import config
+from utils.audio_player import stop_current_playback, play_audio_file
 
 
 def when_long_press():
@@ -12,9 +13,8 @@ def when_long_press():
     return process
     
 def when_short_press():
-    process = subprocess.Popen(['aplay', '-D', f'plughw:{config["audio"]["cardindex"]},{config["audio"]["deviceindex"]}', '-d', config['speaker']['alarm_duration'] ,
-                        config['speaker']['alarm_wav']])
-    return process
+    # 기존 음원 정지 후 새 음원 재생
+    play_audio_file(config['speaker']['alarm_wav'])
 
 async def button_run(hold_time=0.5):
     key = InputDevice("/dev/input/event0") # user버튼
