@@ -159,6 +159,19 @@ class RecordFileHandler(FileSystemEventHandler):
             
             # 여러 설정 중 sound_type이 noise_type과 일치하는 설정 선택
             selected_setting = next((setting for setting in level_settings if setting['sound_type'] == noise_type), None)
+            
+            # 일치하는 설정이 없는 경우 처리
+            if selected_setting is None:
+                logger.warning(f"⚠️ {noise_level} 레벨에서 '{noise_type}' 유형의 설정을 찾을 수 없습니다.")
+                logger.info(f"   📋 사용 가능한 유형: {[setting['sound_type'] for setting in level_settings]}")
+                
+                # 대안: 랜덤 설정 선택
+                if level_settings:
+                    selected_setting = random.choice(level_settings)
+                    logger.info(f"   🎲 대안으로 랜덤 설정 선택: {selected_setting['sound_type']}")
+                else:
+                    return None
+            
             sound_files = selected_setting['sound_files']
             
             if not sound_files:
